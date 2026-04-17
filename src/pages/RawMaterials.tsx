@@ -218,13 +218,21 @@ export default function RawMaterials() {
                       <div className="text-[10px] text-brand-muted">Base: ₹{m.total_cost}</div>
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <button 
-                        onClick={() => toggleDepleted(m.id, m.is_depleted)} 
-                        className={`tag cursor-pointer ${m.is_depleted ? 'bg-gray-100 text-gray-400' : 'bg-green-50 text-green-600 border border-green-200'}`}
-                        disabled={loading}
-                      >
-                        {m.is_depleted ? 'Sold Out' : 'Active'}
-                      </button>
+                      {m.category === 'Spice' ? (
+                        <button 
+                          onClick={() => toggleDepleted(m.id, m.is_depleted)} 
+                          className={`text-[11px] font-[600] px-3 py-1 rounded-full transition-all border ${
+                            m.is_depleted 
+                              ? 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200' 
+                              : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                          }`}
+                          disabled={loading}
+                        >
+                          {m.is_depleted ? 'Sold Out (Inactive)' : 'Active - In Stock'}
+                        </button>
+                      ) : (
+                        <span className="text-brand-muted text-[11px]">—</span>
+                      )}
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <button onClick={() => deleteRawMaterial(m.id)} className={`text-[12px] hover:underline ${confirmDelete === m.id ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>

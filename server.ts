@@ -514,18 +514,23 @@ async function startServer() {
       if (start_date) { mktSql += ' AND start_date >= ?'; mktArgs.push(start_date); }
       if (end_date) { mktSql += ' AND start_date <= ?'; mktArgs.push(end_date + 'T23:59:59'); }
 
+      let rawSql = 'SELECT (total_cost + transport_cost + operational_cost) as total FROM raw_materials WHERE 1=1';
+      const rawArgs: any[] = [];
+      if (start_date) { rawSql += ' AND created_at >= ?'; rawArgs.push(start_date); }
+      if (end_date) { rawSql += ' AND created_at <= ?'; rawArgs.push(end_date + 'T23:59:59'); }
+
       // Performance: Use batch to get all stats in one round trip
       const batchResult = await db.batch([
         { sql: salesSql, args: salesArgs },
         { sql: expSql, args: expArgs },
         { sql: mktSql, args: mktArgs },
-        { sql: 'SELECT COALESCE(SUM(total_cost), 0) as total FROM raw_materials', args: [] }
+        { sql: rawSql, args: rawArgs }
       ], 'read');
 
       const salesRows = batchResult[0].rows;
       const expRows = batchResult[1].rows;
       const mktRows = batchResult[2].rows;
-      const rawTotal = Number(batchResult[3].rows[0].total);
+      const rawRows = batchResult[3].rows;
       
       let totalRevenue = 0, totalCogs = 0;
       for(const s of salesRows) {
@@ -539,12 +544,16 @@ async function startServer() {
       let marketingSpend = 0;
       for(const m of mktRows) marketingSpend += Number(m.spend);
 
+      let totalPurchases = 0;
+      for(const r of rawRows) totalPurchases += Number(r.total);
+
       const grossProfit = totalRevenue - totalCogs;
-      const netProfit = grossProfit - totalExpenses - marketingSpend;
+      // Net Profit now accounts for all outflows: Marketing + Ops Expenses + Inventory Purchases
+      const netProfit = grossProfit - totalExpenses - marketingSpend - totalPurchases;
       
       res.json({
         totalRevenue,
-        totalPurchases: rawTotal,
+        totalPurchases,
         totalExpenses,
         marketingSpend,
         roas: marketingSpend > 0 ? (totalRevenue / marketingSpend) : 0,

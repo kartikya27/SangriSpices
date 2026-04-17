@@ -8,7 +8,7 @@ export default function Products() {
   const { data: rawMaterials } = useFetch<any[]>("/api/raw-materials");
   const { data: variants, refetch: rVariants } = useFetch<any[]>("/api/variants");
   
-  const activeRawMaterials = rawMaterials?.filter(rm => !rm.is_depleted) || [];
+  const activeRawMaterials = rawMaterials?.filter(rm => Number(rm.is_depleted) === 0 && (rm.category === 'Spice' || !rm.category)) || [];
   
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
