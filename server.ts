@@ -37,6 +37,8 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS raw_materials (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      category TEXT DEFAULT 'Spice',
+      unit TEXT DEFAULT 'kg',
       total_qty_kg REAL DEFAULT 0,
       total_cost REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -152,6 +154,8 @@ async function initializeDatabase() {
 
   // Migrations / Catch-all for missing columns
   const migrations = [
+    "ALTER TABLE raw_materials ADD COLUMN unit TEXT DEFAULT 'kg'",
+    "ALTER TABLE raw_materials ADD COLUMN category TEXT DEFAULT 'Spice'",
     "ALTER TABLE raw_materials ADD COLUMN transport_cost REAL DEFAULT 0",
     "ALTER TABLE raw_materials ADD COLUMN operational_cost REAL DEFAULT 0",
     "ALTER TABLE raw_materials ADD COLUMN is_depleted INTEGER DEFAULT 0",
@@ -194,9 +198,12 @@ async function startServer() {
       const transport = Number(rm.transport_cost || 0);
       const operational = Number(rm.operational_cost || 0);
       const totalCostBasis = Number(rm.total_cost || 0) + transport + operational;
+      const qty = Number(rm.total_qty_kg || 0);
       return {
         ...rm,
-        cost_per_gram: rm.total_qty_kg > 0 ? (totalCostBasis) / (rm.total_qty_kg * 1000) : 0,
+        cost_per_unit: qty > 0 ? (totalCostBasis) / qty : 0,
+        // legacy compat
+        cost_per_gram: rm.unit === 'kg' ? (qty > 0 ? totalCostBasis / (qty * 1000) : 0) : (qty > 0 ? totalCostBasis / qty : 0),
         transport_cost: transport,
         operational_cost: operational
       };
@@ -205,18 +212,18 @@ async function startServer() {
   });
 
   app.post('/api/raw-materials', async (req, res) => {
-    const { id: updateId, name, total_qty_kg, total_cost, transport_cost, operational_cost } = req.body;
+    const { id: updateId, name, category, unit, total_qty_kg, total_cost, transport_cost, operational_cost } = req.body;
     if (updateId) {
       await db.execute({
-        sql: 'UPDATE raw_materials SET name=?, total_qty_kg=?, total_cost=?, transport_cost=?, operational_cost=? WHERE id=?',
-        args: [name, total_qty_kg, total_cost, transport_cost, operational_cost, updateId]
+        sql: 'UPDATE raw_materials SET name=?, category=?, unit=?, total_qty_kg=?, total_cost=?, transport_cost=?, operational_cost=? WHERE id=?',
+        args: [name, category || 'Spice', unit || 'kg', total_qty_kg, total_cost, transport_cost, operational_cost, updateId]
       });
       res.json({ id: updateId });
     } else {
       const id = uuidv4();
       await db.execute({
-        sql: 'INSERT INTO raw_materials (id, name, total_qty_kg, total_cost, transport_cost, operational_cost) VALUES (?, ?, ?, ?, ?, ?)',
-        args: [id, name, total_qty_kg || 0, total_cost || 0, transport_cost || 0, operational_cost || 0]
+        sql: 'INSERT INTO raw_materials (id, name, category, unit, total_qty_kg, total_cost, transport_cost, operational_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [id, name, category || 'Spice', unit || 'kg', total_qty_kg || 0, total_cost || 0, transport_cost || 0, operational_cost || 0]
       });
       res.json({ id });
     }
