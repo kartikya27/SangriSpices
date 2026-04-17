@@ -537,7 +537,7 @@ async function startServer() {
       let totalRevenue = 0, totalCogs = 0;
       for(const s of salesRows) {
         totalRevenue += (Number(s.sale_price) * Number(s.qty));
-        totalCogs += ((Number(s.unit_cost) + Number(s.shipping_cost)) * Number(s.qty));
+        totalCogs += (Number(s.unit_cost) * Number(s.qty)) + Number(s.shipping_cost);
       }
       
       let totalExpenses = 0;

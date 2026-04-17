@@ -271,7 +271,7 @@ export default function Sales() {
               </thead>
               <tbody>
                 {sales?.map((s) => {
-                  const profit = s.qty * s.sale_price - s.qty * (s.unit_cost + s.shipping_cost);
+                  const profit = s.qty * s.sale_price - (s.qty * s.unit_cost + s.shipping_cost);
                   const margin = s.qty * s.sale_price > 0 ? (profit / (s.qty * s.sale_price)) * 100 : 0;
                   return (
                     <tr key={s.id} className="hover:bg-gray-50/50">
@@ -300,7 +300,7 @@ export default function Sales() {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div className="font-[600]">{formatCurrency(s.qty * s.sale_price)}</div>
-                        <div className="text-[10px] text-gray-400">Ship: {formatCurrency(s.qty * s.shipping_cost)}</div>
+                        <div className="text-[10px] text-gray-400">Ship: {formatCurrency(s.shipping_cost)}</div>
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div className={profit >= 0 ? "text-brand-success font-[600]" : "text-brand-danger font-[600]"}>
