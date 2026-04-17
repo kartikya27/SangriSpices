@@ -14,20 +14,36 @@ export default function Dashboard() {
   if (endDate) queryParams.append("end_date", endDate);
   if (productId) queryParams.append("product_id", productId);
 
-  const { data: stats, loading } = useFetch<any>(`/api/dashboard?${queryParams.toString()}`);
-  const { data: sales } = useFetch<any[]>(`/api/sales`);
+  const { data: stats, loading, error: statsError } = useFetch<any>(`/api/dashboard?${queryParams.toString()}`);
+  const { data: uiSales, loading: salesLoading, error: salesError } = useFetch<any[]>(`/api/sales`);
   const { data: products } = useFetch<any[]>("/api/products");
-  const { data: filteredSales } = useFetch<any[]>(`/api/sales`);
 
-  if (loading || !stats) return <div className="p-8">Loading...</div>;
+  if (loading || salesLoading) return <div className="p-8">Loading data from cloud...</div>;
+  if (statsError || salesError) return (
+    <div className="p-8 text-brand-warning">
+      <h2 className="text-xl font-bold mb-2">Connection Issues</h2>
+      <p>Could not fetch data. This usually happens if your Turso credentials are incorrect or the database is starting up.</p>
+      <div className="mt-4 p-4 bg-white border border-brand-border rounded text-sm font-mono whitespace-pre-wrap">
+        {statsError?.message || salesError?.message}
+      </div>
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-4 bg-brand-accent text-white px-4 py-2 rounded text-sm font-medium"
+      >
+        Retry Connection
+      </button>
+    </div>
+  );
 
-  let uiSales = filteredSales || [];
-  if (startDate) uiSales = uiSales.filter(s => s.date >= startDate);
-  if (endDate) uiSales = uiSales.filter(s => s.date <= endDate + "T23:59:59");
-  if (productId) uiSales = uiSales.filter(s => s.product_id === productId);
+  if (!stats) return <div className="p-8">Syncing...</div>;
+
+  let displaySales = uiSales || [];
+  if (startDate) displaySales = displaySales.filter(s => s.date >= startDate);
+  if (endDate) displaySales = displaySales.filter(s => s.date <= endDate + "T23:59:59");
+  if (productId) displaySales = displaySales.filter(s => s.product_id === productId);
 
   const last7Days: Record<string, number> = {};
-  uiSales.forEach((s) => {
+  displaySales.forEach((s) => {
     const d = new Date(s.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
     last7Days[d] = (last7Days[d] || 0) + (s.sale_price * s.qty);
   });
@@ -131,8 +147,8 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="p-4 flex-1 overflow-auto">
               <div className="space-y-[12px]">
-                {uiSales.length === 0 && <div className="text-[12px] text-brand-muted">No sales match this filter.</div>}
-                {uiSales.slice(0, 5).map(sale => (
+                {displaySales.length === 0 && <div className="text-[12px] text-brand-muted">No sales match this filter.</div>}
+                {displaySales.slice(0, 5).map(sale => (
                   <div key={sale.id} className="flex flex-col border-b border-brand-border pb-[12px] last:border-0 last:pb-0">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[13px] font-[600]">{sale.product_name}</span>
