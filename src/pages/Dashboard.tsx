@@ -59,7 +59,7 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <div className="grid grid-cols-5 gap-[16px] mb-[24px]">
+      <div className="grid grid-cols-6 gap-[16px] mb-[24px]">
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Total Revenue</div>
           <div className="text-[20px] font-[700]">{formatCurrency(stats.totalRevenue)}</div>
@@ -71,6 +71,10 @@ export default function Dashboard() {
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Marketing Spend</div>
           <div className="text-[20px] font-[700] text-brand-warning">{formatCurrency(stats.marketingSpend)}</div>
+        </div>
+        <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
+          <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Other Expenses</div>
+          <div className="text-[20px] font-[700] text-brand-warning">{formatCurrency(stats.totalExpenses)}</div>
         </div>
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Gross Profit</div>
