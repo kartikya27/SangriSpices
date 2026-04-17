@@ -74,6 +74,9 @@ export default function Expenses() {
                 <Label>Category</Label>
                 <Select name="category" required>
                   <option value="Software">Software / Apps</option>
+                  <option value="Shipping">Shipping</option>
+                  <option value="Shopdeck">Shopdeck</option>
+                  <option value="AmazonAds">Amazon Ads</option>
                   <option value="Rent">Rent & Utilities</option>
                   <option value="Salaries">Salaries</option>
                   <option value="Misc">Miscellaneous</option>
