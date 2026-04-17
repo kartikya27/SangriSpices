@@ -9,9 +9,15 @@ import Sales from "./pages/Sales";
 import Expenses from "./pages/Expenses";
 import Marketing from "./pages/Marketing";
 import AIChat from "./pages/AIChat";
+import Auth from "./components/Auth";
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("isLoggedIn") === "true");
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  if (!isLoggedIn) {
+    return <Auth onLogin={() => setIsLoggedIn(true)} />;
+  }
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },

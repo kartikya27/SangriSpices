@@ -551,13 +551,13 @@ async function startServer() {
       }
       
       let totalExpenses = 0;
-      for(const e of expRows) totalExpenses += Number(e.amount);
+      for(const e of expRows) totalExpenses += (Number(e.amount) || 0);
 
       let marketingSpend = 0;
-      for(const m of mktRows) marketingSpend += Number(m.spend);
+      for(const m of mktRows) marketingSpend += (Number(m.spend) || 0);
 
       let totalPurchases = 0;
-      for(const r of rawRows) totalPurchases += Number(r.total);
+      for(const r of rawRows) totalPurchases += (Number(r.total) || 0);
 
       const grossProfit = totalRevenue - totalCogs;
       // Net Profit now accounts for all outflows: Marketing + Ops Expenses + Inventory Purchases
