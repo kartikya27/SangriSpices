@@ -437,6 +437,11 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.delete('/api/orders/:order_id', async (req, res) => {
+    await db.execute({ sql: 'DELETE FROM sales WHERE order_id=?', args: [req.params.order_id] });
+    res.json({ success: true });
+  });
+
   // Expenses
   app.get('/api/expenses', async (req, res) => {
     const result = await db.execute('SELECT * FROM expenses ORDER BY date DESC');
@@ -536,8 +541,13 @@ async function startServer() {
       
       let totalRevenue = 0, totalCogs = 0;
       for(const s of salesRows) {
-        totalRevenue += (Number(s.sale_price) * Number(s.qty));
-        totalCogs += (Number(s.unit_cost) * Number(s.qty)) + Number(s.shipping_cost);
+        const salePrice = Number(s.sale_price) || 0;
+        const qty = Number(s.qty) || 0;
+        const unitCost = Number(s.unit_cost) || 0;
+        const shippingCost = Number(s.shipping_cost) || 0;
+
+        totalRevenue += (salePrice * qty);
+        totalCogs += (unitCost * qty) + shippingCost;
       }
       
       let totalExpenses = 0;

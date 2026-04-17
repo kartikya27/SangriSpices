@@ -12,6 +12,45 @@ export default function Sales() {
 
   const [loading, setLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSales = sales?.filter(s => {
+    const q = searchQuery.toLowerCase();
+    return (
+      s.external_order_id?.toLowerCase().includes(q) ||
+      s.order_id?.toLowerCase().includes(q) ||
+      s.product_name?.toLowerCase().includes(q) ||
+      s.variant_name?.toLowerCase().includes(q) ||
+      s.customer_phone?.toLowerCase().includes(q) ||
+      s.customer_address?.toLowerCase().includes(q) ||
+      s.channel_name?.toLowerCase().includes(q)
+    );
+  });
+
+  const groupedSales = (filteredSales || []).reduce((acc: any[], item: any) => {
+    const existingOrder = acc.find(o => o.order_id === item.order_id);
+    if (existingOrder) {
+      existingOrder.items.push(item);
+      existingOrder.total_revenue += item.qty * item.sale_price;
+      existingOrder.total_shipping += item.shipping_cost;
+      existingOrder.total_profit += item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost);
+    } else {
+      acc.push({
+        order_id: item.order_id,
+        external_order_id: item.external_order_id,
+        date: item.date,
+        channel_name: item.channel_name,
+        shipping_provider: item.shipping_provider,
+        customer_phone: item.customer_phone,
+        customer_address: item.customer_address,
+        items: [item],
+        total_revenue: item.qty * item.sale_price,
+        total_shipping: item.shipping_cost,
+        total_profit: item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost)
+      });
+    }
+    return acc;
+  }, []);
   
   // For multiple items form
   const [items, setItems] = useState<{ id: string, variant_id: string, qty: number, sale_price: string, shipping_cost: string, unit_cost: number }[]>([
@@ -99,14 +138,15 @@ export default function Sales() {
     refetch();
   };
 
-  const deleteSale = async (id: string) => {
-    if (confirmDelete !== id) {
-      setConfirmDelete(id);
+  const deleteOrder = async (orderId: string, isGroup: boolean) => {
+    if (confirmDelete !== orderId) {
+      setConfirmDelete(orderId);
       setTimeout(() => setConfirmDelete(null), 3000);
       return;
     }
     setLoading(true);
-    await fetch(`/api/sales/${id}`, { method: "DELETE" });
+    const url = isGroup ? `/api/orders/${orderId}` : `/api/sales/${orderId}`;
+    await fetch(url, { method: "DELETE" });
     setLoading(false);
     setConfirmDelete(null);
     refetch();
@@ -255,70 +295,89 @@ export default function Sales() {
         </Card>
 
         <Card className="flex flex-col h-full overflow-hidden">
-          <CardHeader>
-            <CardTitle>Recent Sales Lines</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Recent Orders</CardTitle>
+            <div className="flex items-center gap-2">
+              <Input 
+                placeholder="Search order, product, customer..." 
+                className="h-8 text-[12px] w-[200px]" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 table-container">
             <table>
               <thead>
                 <tr>
                   <th>Order/Date</th>
-                  <th>Item Config</th>
+                  <th>Order Details</th>
                   <th style={{ textAlign: "right" }}>Rev & Ship</th>
                   <th style={{ textAlign: "right" }}>Profit</th>
                   <th style={{ textAlign: "right" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sales?.map((s) => {
-                  const profit = s.qty * s.sale_price - (s.qty * s.unit_cost + s.shipping_cost);
-                  const margin = s.qty * s.sale_price > 0 ? (profit / (s.qty * s.sale_price)) * 100 : 0;
+                {groupedSales?.map((order: any) => {
+                  const margin = order.total_revenue > 0 ? (order.total_profit / order.total_revenue) * 100 : 0;
+                  const isGroup = !!order.order_id;
+                  const deleteId = isGroup ? order.order_id : order.items[0].id;
+                  
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50/50">
-                      <td className="text-brand-muted">
+                    <tr key={order.order_id || order.items[0].id} className="hover:bg-gray-50/50 align-top">
+                      <td className="text-brand-muted py-4">
                         <div className="font-mono text-[10px] text-gray-400 mb-1">
-                          {s.external_order_id ? (
-                            <span className="text-brand-accent font-bold">#{s.external_order_id}</span>
+                          {order.external_order_id ? (
+                            <span className="text-brand-accent font-bold">#{order.external_order_id}</span>
                           ) : (
-                            s.order_id?.split('-')[0]
+                            order.order_id?.split('-')[0] || "N/A"
                           )}
                         </div>
-                        <div className="text-[12px] font-medium">{new Date(s.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
-                        <div className="flex gap-1 mt-1">
-                          <span className="tag bg-[#f1f5f9] text-[#475569]">{s.channel_name}</span>
-                          {s.shipping_provider && (
-                            <span className="tag bg-brand-accent/10 text-brand-accent border border-brand-accent/20">{s.shipping_provider}</span>
+                        <div className="text-[12px] font-medium">{new Date(order.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="tag bg-[#f1f5f9] text-[#475569]">{order.channel_name}</span>
+                          {order.shipping_provider && (
+                            <span className="tag bg-brand-accent/10 text-brand-accent border border-brand-accent/20">{order.shipping_provider}</span>
                           )}
                         </div>
                       </td>
-                      <td>
-                        <div className="font-[600]">{s.product_name}</div>
-                        <div className="text-[11px] text-brand-muted">{s.variant_name} x {formatNumber(s.qty)}</div>
-                        {(s.customer_phone || s.customer_address) && (
-                          <div className="text-[10px] text-brand-muted mt-1 truncate max-w-[120px]">{s.customer_phone} {s.customer_address}</div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div className="font-[600]">{formatCurrency(s.qty * s.sale_price)}</div>
-                        <div className="text-[10px] text-gray-400">Ship: {formatCurrency(s.shipping_cost)}</div>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div className={profit >= 0 ? "text-brand-success font-[600]" : "text-brand-danger font-[600]"}>
-                          {formatCurrency(profit)}
+                      <td className="py-4">
+                        <div className="space-y-2">
+                          {order.items.map((item: any, idx: number) => (
+                            <div key={item.id} className={`${idx > 0 ? 'pt-2 border-t border-gray-100' : ''}`}>
+                              <div className="font-[600] text-[13px]">{item.product_name}</div>
+                              <div className="text-[11px] text-brand-muted">{item.variant_name} x {formatNumber(item.qty)}</div>
+                            </div>
+                          ))}
+                          {(order.customer_phone || order.customer_address) && (
+                            <div className="text-[10px] bg-gray-50 p-1 rounded text-brand-muted mt-2">
+                              {order.customer_phone} {order.customer_address}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-[10px] text-brand-muted">{margin.toFixed(1)}% mgn</div>
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button onClick={() => deleteSale(s.id)} className={`text-[12px] hover:underline ${confirmDelete === s.id ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
-                          {confirmDelete === s.id ? 'Sure?' : 'Del'}
+                      <td style={{ textAlign: "right" }} className="py-4">
+                        <div className="font-[700] text-brand-text">{formatCurrency(order.total_revenue)}</div>
+                        <div className="text-[10px] text-gray-400">Total Ship: {formatCurrency(order.total_shipping)}</div>
+                        <div className="text-[10px] text-gray-400 mt-1">{order.items.length} item{order.items.length > 1 ? 's' : ''}</div>
+                      </td>
+                      <td style={{ textAlign: "right" }} className="py-4">
+                        <div className={order.total_profit >= 0 ? "text-brand-success font-[700]" : "text-brand-danger font-[700]"}>
+                          {formatCurrency(order.total_profit)}
+                        </div>
+                        <div className="text-[10px] text-brand-muted font-medium">{margin.toFixed(1)}% mgn</div>
+                      </td>
+                      <td style={{ textAlign: "right" }} className="py-4">
+                        <button onClick={() => deleteOrder(deleteId, isGroup)} className={`text-[12px] hover:underline ${confirmDelete === deleteId ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
+                          {confirmDelete === deleteId ? 'Sure?' : 'Del'}
                         </button>
                       </td>
                     </tr>
                   );
                 })}
-                {!sales?.length && (
+                {!groupedSales?.length && (
                   <tr>
-                    <td colSpan={5} className="py-[32px] text-center text-brand-muted">No sales recorded yet.</td>
+                    <td colSpan={5} className="py-[32px] text-center text-brand-muted">No orders found matching search.</td>
                   </tr>
                 )}
               </tbody>
