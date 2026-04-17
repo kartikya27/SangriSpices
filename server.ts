@@ -117,6 +117,7 @@ try { db.exec(`ALTER TABLE variants ADD COLUMN mrp REAL DEFAULT 0;`); } catch (e
 try { db.exec(`ALTER TABLE sales ADD COLUMN customer_phone TEXT;`); } catch (e) {}
 try { db.exec(`ALTER TABLE sales ADD COLUMN customer_address TEXT;`); } catch (e) {}
 try { db.exec(`ALTER TABLE sales ADD COLUMN order_id TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE raw_materials ADD COLUMN is_depleted INTEGER DEFAULT 0;`); } catch (e) {}
 
 async function startServer() {
   const app = express();
@@ -128,6 +129,12 @@ async function startServer() {
   // --- API ROUTES ---
 
   // Raw Materials
+  app.post('/api/raw-materials/:id/deplete', (req, res) => {
+    const { is_depleted } = req.body;
+    db.prepare('UPDATE raw_materials SET is_depleted=? WHERE id=?').run(is_depleted ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  });
+
   app.get('/api/raw-materials', (req, res) => {
     const list = db.prepare('SELECT * FROM raw_materials ORDER BY created_at DESC').all();
     res.json(list.map((rm: any) => {

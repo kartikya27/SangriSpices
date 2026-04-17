@@ -8,6 +8,8 @@ export default function Products() {
   const { data: rawMaterials } = useFetch<any[]>("/api/raw-materials");
   const { data: variants, refetch: rVariants } = useFetch<any[]>("/api/variants");
   
+  const activeRawMaterials = rawMaterials?.filter(rm => !rm.is_depleted) || [];
+  
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   
@@ -144,8 +146,8 @@ export default function Products() {
                 <div>
                   <Label>Link Raw Material Batch</Label>
                   <Select name="raw_material_id" required>
-                    <option value="">Select batch...</option>
-                    {rawMaterials?.map(rm => <option key={rm.id} value={rm.id}>{rm.name} ({formatCurrency(rm.cost_per_gram)}/g)</option>)}
+                    <option value="">Select active batch...</option>
+                    {activeRawMaterials.map(rm => <option key={rm.id} value={rm.id}>{rm.name} ({formatCurrency(rm.cost_per_gram)}/g)</option>)}
                   </Select>
                 </div>
 
