@@ -163,7 +163,9 @@ async function initializeDatabase() {
     "ALTER TABLE expenses ADD COLUMN end_date DATETIME",
     "ALTER TABLE sales ADD COLUMN customer_phone TEXT",
     "ALTER TABLE sales ADD COLUMN customer_address TEXT",
-    "ALTER TABLE sales ADD COLUMN order_id TEXT"
+    "ALTER TABLE sales ADD COLUMN order_id TEXT",
+    "ALTER TABLE sales ADD COLUMN shipping_provider TEXT",
+    "ALTER TABLE sales ADD COLUMN external_order_id TEXT"
   ];
 
   for (const m of migrations) {
@@ -403,7 +405,7 @@ async function startServer() {
   });
 
   app.post('/api/sales', async (req, res) => {
-    const { channel_id, date, customer_phone, customer_address, items } = req.body;
+    const { channel_id, date, customer_phone, customer_address, shipping_provider, external_order_id, items } = req.body;
     const finalDate = date || new Date().toISOString();
     const order_id = uuidv4();
     
@@ -413,8 +415,8 @@ async function startServer() {
     for (const item of items) {
       const id = uuidv4();
       batch.push({
-        sql: 'INSERT INTO sales (id, order_id, channel_id, variant_id, qty, sale_price, unit_cost, shipping_cost, date, customer_phone, customer_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [id, order_id, channel_id, item.variant_id, item.qty, item.sale_price, item.unit_cost, item.shipping_cost, finalDate, customer_phone || null, customer_address || null]
+        sql: 'INSERT INTO sales (id, order_id, channel_id, variant_id, qty, sale_price, unit_cost, shipping_cost, date, customer_phone, customer_address, shipping_provider, external_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [id, order_id, channel_id, item.variant_id, item.qty, item.sale_price, item.unit_cost, item.shipping_cost, finalDate, customer_phone || null, customer_address || null, shipping_provider || null, external_order_id || null]
       });
       batch.push({
         sql: 'UPDATE variants SET stock_qty = stock_qty - ? WHERE id = ?',

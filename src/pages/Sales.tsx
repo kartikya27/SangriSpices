@@ -81,6 +81,8 @@ export default function Sales() {
         date: fd.get("date") || new Date().toISOString(),
         customer_phone: fd.get("customer_phone"),
         customer_address: fd.get("customer_address"),
+        shipping_provider: fd.get("shipping_provider"),
+        external_order_id: fd.get("external_order_id"),
         items: validItems.map(i => ({
           variant_id: i.variant_id,
           qty: Number(i.qty),
@@ -140,6 +142,25 @@ export default function Sales() {
                 </div>
               </div>
               
+              <div className="grid grid-cols-2 gap-[12px]">
+                <div>
+                  <Label>External Order ID (Optional)</Label>
+                  <Input name="external_order_id" placeholder="e.g. AMZ-12345" />
+                </div>
+                <div>
+                  <Label>Shipping Provider</Label>
+                  <Select name="shipping_provider">
+                    <option value="">Select Provider...</option>
+                    <option value="Amazon">Amazon</option>
+                    <option value="Shiprocket">Shiprocket</option>
+                    <option value="Delhivery">Delhivery</option>
+                    <option value="BlueDart">BlueDart</option>
+                    <option value="Self / Local">Self / Local</option>
+                    <option value="Other">Other</option>
+                  </Select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-[12px]">
                 <div>
                   <Label>Customer Phone (Optional)</Label>
@@ -255,9 +276,20 @@ export default function Sales() {
                   return (
                     <tr key={s.id} className="hover:bg-gray-50/50">
                       <td className="text-brand-muted">
-                        <div className="font-mono text-[10px] text-gray-400 mb-1">{s.order_id?.split('-')[0]}</div>
-                        <div className="text-[12px]">{new Date(s.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
-                        <span className="tag bg-[#f1f5f9] text-[#475569] mt-1 block w-max">{s.channel_name}</span>
+                        <div className="font-mono text-[10px] text-gray-400 mb-1">
+                          {s.external_order_id ? (
+                            <span className="text-brand-accent font-bold">#{s.external_order_id}</span>
+                          ) : (
+                            s.order_id?.split('-')[0]
+                          )}
+                        </div>
+                        <div className="text-[12px] font-medium">{new Date(s.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                        <div className="flex gap-1 mt-1">
+                          <span className="tag bg-[#f1f5f9] text-[#475569]">{s.channel_name}</span>
+                          {s.shipping_provider && (
+                            <span className="tag bg-brand-accent/10 text-brand-accent border border-brand-accent/20">{s.shipping_provider}</span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div className="font-[600]">{s.product_name}</div>
