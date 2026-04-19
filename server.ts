@@ -165,7 +165,8 @@ async function initializeDatabase() {
     "ALTER TABLE sales ADD COLUMN customer_address TEXT",
     "ALTER TABLE sales ADD COLUMN order_id TEXT",
     "ALTER TABLE sales ADD COLUMN shipping_provider TEXT",
-    "ALTER TABLE sales ADD COLUMN external_order_id TEXT"
+    "ALTER TABLE sales ADD COLUMN external_order_id TEXT",
+    "ALTER TABLE sales ADD COLUMN is_returned INTEGER DEFAULT 0"
   ];
 
   for (const m of migrations) {
@@ -442,6 +443,54 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.post('/api/orders/:order_id/return', async (req, res) => {
+    try {
+      const { order_id } = req.params;
+      const { is_returned } = req.body;
+      const targetState = is_returned ? 1 : 0;
+      
+      const salesRes = await db.execute({ sql: 'SELECT * FROM sales WHERE order_id=?', args: [order_id] });
+      const items = salesRes.rows;
+      if (items.length === 0) return res.status(404).json({ error: "Order not found" });
+
+      const batch = [];
+      const now = new Date().toISOString();
+      
+      for (const item of items) {
+        // Skip if already in the target state
+        if (item.is_returned === targetState) continue;
+        
+        // Update the return flag flag for this sale record
+        batch.push({
+          sql: 'UPDATE sales SET is_returned=? WHERE id=?',
+          args: [targetState, item.id]
+        });
+
+        // If currently returning (target=1), add stock back. If undoing return (target=0), remove stock again
+        const stockChange = is_returned ? item.qty : -item.qty;
+        
+        batch.push({
+          sql: 'UPDATE variants SET stock_qty = stock_qty + ? WHERE id = ?',
+          args: [stockChange, item.variant_id]
+        });
+        
+        batch.push({
+          sql: 'INSERT INTO inventory_logs (id, variant_id, qty_change, reason, created_at) VALUES (?, ?, ?, ?, ?)',
+          args: [uuidv4(), item.variant_id, stockChange, is_returned ? 'Order Returned' : 'Undo Return', now]
+        });
+      }
+      
+      if (batch.length > 0) {
+        await db.batch(batch, 'write');
+      }
+      
+      res.json({ success: true, is_returned: targetState });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Expenses
   app.get('/api/expenses', async (req, res) => {
     const result = await db.execute('SELECT * FROM expenses ORDER BY date DESC');
@@ -540,14 +589,21 @@ async function startServer() {
       const rawRows = batchResult[3].rows;
       
       let totalRevenue = 0, totalCogs = 0;
+      let returnedRevenue = 0, returnedCogs = 0;
+      
       for(const s of salesRows) {
         const salePrice = Number(s.sale_price) || 0;
         const qty = Number(s.qty) || 0;
         const unitCost = Number(s.unit_cost) || 0;
         const shippingCost = Number(s.shipping_cost) || 0;
 
-        totalRevenue += (salePrice * qty);
-        totalCogs += (unitCost * qty) + shippingCost;
+        if (s.is_returned === 1) {
+          returnedRevenue += (salePrice * qty);
+          returnedCogs += (unitCost * qty) + shippingCost;
+        } else {
+          totalRevenue += (salePrice * qty);
+          totalCogs += (unitCost * qty) + shippingCost;
+        }
       }
       
       let totalExpenses = 0;
@@ -568,11 +624,13 @@ async function startServer() {
         totalPurchases,
         totalExpenses,
         marketingSpend,
+        returnedRevenue,
+        returnedCogs,
         roas: marketingSpend > 0 ? (totalRevenue / marketingSpend) : 0,
         marketingPercent: totalRevenue > 0 ? (marketingSpend / totalRevenue) * 100 : 0,
         grossProfit,
         netProfit,
-        salesCount: salesRows.length
+        salesCount: salesRows.filter((s: any) => s.is_returned !== 1).length
       });
     } catch (error: any) {
       console.error('Dashboard Error:', error);

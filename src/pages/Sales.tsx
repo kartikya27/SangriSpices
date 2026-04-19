@@ -34,6 +34,8 @@ export default function Sales() {
       existingOrder.total_revenue += item.qty * item.sale_price;
       existingOrder.total_shipping += item.shipping_cost;
       existingOrder.total_profit += item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost);
+      // If any item is returned, we consider the whole order returned for now
+      if (item.is_returned === 1) existingOrder.is_returned = 1;
     } else {
       acc.push({
         order_id: item.order_id,
@@ -43,6 +45,7 @@ export default function Sales() {
         shipping_provider: item.shipping_provider,
         customer_phone: item.customer_phone,
         customer_address: item.customer_address,
+        is_returned: item.is_returned === 1 ? 1 : 0,
         items: [item],
         total_revenue: item.qty * item.sale_price,
         total_shipping: item.shipping_cost,
@@ -149,6 +152,17 @@ export default function Sales() {
     await fetch(url, { method: "DELETE" });
     setLoading(false);
     setConfirmDelete(null);
+    refetch();
+  };
+
+  const toggleReturn = async (orderId: string, isReturned: boolean) => {
+    setLoading(true);
+    await fetch(`/api/orders/${orderId}/return`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_returned: !isReturned })
+    });
+    setLoading(false);
     refetch();
   };
 
@@ -324,7 +338,7 @@ export default function Sales() {
                   const deleteId = isGroup ? order.order_id : order.items[0].id;
                   
                   return (
-                    <tr key={order.order_id || order.items[0].id} className="hover:bg-gray-50/50 align-top">
+                    <tr key={order.order_id || order.items[0].id} className={`hover:bg-gray-50/50 align-top ${order.is_returned ? 'opacity-50' : ''}`}>
                       <td className="text-brand-muted py-4">
                         <div className="font-mono text-[10px] text-gray-400 mb-1">
                           {order.external_order_id ? (
@@ -333,7 +347,10 @@ export default function Sales() {
                             order.order_id?.split('-')[0] || "N/A"
                           )}
                         </div>
-                        <div className="text-[12px] font-medium">{new Date(order.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                        <div className="text-[12px] font-medium">
+                          {order.is_returned ? <span className="text-red-600 font-bold mr-1">[RETURNED]</span> : null}
+                          {new Date(order.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                           <span className="tag bg-[#f1f5f9] text-[#475569]">{order.channel_name}</span>
                           {order.shipping_provider && (
@@ -345,7 +362,7 @@ export default function Sales() {
                         <div className="space-y-2">
                           {order.items.map((item: any, idx: number) => (
                             <div key={item.id} className={`${idx > 0 ? 'pt-2 border-t border-gray-100' : ''}`}>
-                              <div className="font-[600] text-[13px]">{item.product_name}</div>
+                              <div className={`font-[600] text-[13px] ${order.is_returned ? 'line-through' : ''}`}>{item.product_name}</div>
                               <div className="text-[11px] text-brand-muted">{item.variant_name} x {formatNumber(item.qty)}</div>
                             </div>
                           ))}
@@ -357,20 +374,31 @@ export default function Sales() {
                         </div>
                       </td>
                       <td style={{ textAlign: "right" }} className="py-4">
-                        <div className="font-[700] text-brand-text">{formatCurrency(order.total_revenue)}</div>
+                        <div className={`font-[700] text-brand-text ${order.is_returned ? 'line-through text-brand-muted' : ''}`}>{formatCurrency(order.total_revenue)}</div>
                         <div className="text-[10px] text-gray-400">Total Ship: {formatCurrency(order.total_shipping)}</div>
                         <div className="text-[10px] text-gray-400 mt-1">{order.items.length} item{order.items.length > 1 ? 's' : ''}</div>
                       </td>
                       <td style={{ textAlign: "right" }} className="py-4">
-                        <div className={order.total_profit >= 0 ? "text-brand-success font-[700]" : "text-brand-danger font-[700]"}>
+                        <div className={`${order.is_returned ? 'line-through text-brand-muted' : (order.total_profit >= 0 ? "text-brand-success" : "text-brand-danger")} font-[700]`}>
                           {formatCurrency(order.total_profit)}
                         </div>
                         <div className="text-[10px] text-brand-muted font-medium">{margin.toFixed(1)}% mgn</div>
                       </td>
                       <td style={{ textAlign: "right" }} className="py-4">
-                        <button onClick={() => deleteOrder(deleteId, isGroup)} className={`text-[12px] hover:underline ${confirmDelete === deleteId ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
-                          {confirmDelete === deleteId ? 'Sure?' : 'Del'}
-                        </button>
+                        <div className="flex flex-col items-end gap-2">
+                          <label className="flex items-center gap-1 text-[11px] cursor-pointer text-gray-600 hover:text-black">
+                            <input 
+                              type="checkbox" 
+                              checked={!!order.is_returned}
+                              onChange={() => toggleReturn(deleteId, !!order.is_returned)}
+                              className="cursor-pointer"
+                            />
+                            Return
+                          </label>
+                          <button onClick={() => deleteOrder(deleteId, isGroup)} className={`text-[12px] hover:underline ${confirmDelete === deleteId ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
+                            {confirmDelete === deleteId ? 'Sure?' : 'Del'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

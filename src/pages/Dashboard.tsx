@@ -89,12 +89,12 @@ export default function Dashboard() {
           <div className="text-[20px] font-[700] text-brand-warning">{formatCurrency(stats.marketingSpend)}</div>
         </div>
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
-          <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Other Expenses</div>
-          <div className="text-[20px] font-[700] text-brand-warning">{formatCurrency(stats.totalExpenses)}</div>
-        </div>
-        <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Gross Profit (On Sales)</div>
           <div className="text-[20px] font-[700] text-brand-success">{formatCurrency(stats.grossProfit)}</div>
+        </div>
+        <div className="bg-white p-[16px] rounded-[8px] border-red-200 bg-red-50/50 shadow-sm col-span-1">
+           <div className="text-[11px] uppercase tracking-[0.05em] text-red-600 font-bold mb-[4px]">Refunded/Returned Revenue</div>
+           <div className="text-[20px] font-[700] text-red-700">{formatCurrency(stats.returnedRevenue || 0)}</div>
         </div>
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm col-span-1">
            <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">COGS (of items sold)</div>
