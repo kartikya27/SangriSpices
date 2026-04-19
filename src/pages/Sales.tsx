@@ -166,12 +166,27 @@ export default function Sales() {
     refetch();
   };
 
+  // Calculate Totals
+  const activeOrders = groupedSales.filter((o: any) => o.is_returned !== 1);
+  const totalActiveRevenue = activeOrders.reduce((sum: number, o: any) => sum + o.total_revenue, 0);
+  const totalActiveProfit = activeOrders.reduce((sum: number, o: any) => sum + o.total_profit, 0);
+
   return (
     <div className="flex flex-col flex-1 h-full">
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Sales Record</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Log transactions, adjust custom shipping per order line, and view real-time profitability snapshots per order</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
+            <span className="text-[10px] text-brand-muted uppercase font-bold">Total Active Revenue</span>
+            <span className="text-[16px] font-bold text-brand-text">{formatCurrency(totalActiveRevenue)}</span>
+          </div>
+          <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
+            <span className="text-[10px] text-brand-muted uppercase font-bold">Total Active Profit</span>
+            <span className="text-[16px] font-bold text-brand-success">{formatCurrency(totalActiveProfit)}</span>
+          </div>
         </div>
       </div>
 

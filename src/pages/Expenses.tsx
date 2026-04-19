@@ -44,12 +44,20 @@ export default function Expenses() {
     refetch();
   };
 
+  const totalOtherExpenses = (expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
   return (
     <div className="flex flex-col flex-1 h-full">
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Expenses Tracking</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Log fixed and variable non-product costs across the business</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
+            <span className="text-[10px] text-brand-muted uppercase font-bold">Total Other Expenses</span>
+            <span className="text-[16px] font-bold text-brand-warning">{formatCurrency(totalOtherExpenses)}</span>
+          </div>
         </div>
       </div>
 

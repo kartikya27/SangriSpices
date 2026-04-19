@@ -74,12 +74,20 @@ export default function RawMaterials() {
     refetch();
   };
 
+  const totalRawMaterialInvestment = (materials || []).reduce((sum, m) => sum + ((m.total_cost || 0) + (m.transport_cost || 0) + (m.operational_cost || 0)), 0);
+
   return (
     <div className="flex flex-col flex-1 h-full">
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Procurement & Inventory</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Log bulk purchases of spices, packaging, and equipment</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
+            <span className="text-[10px] text-brand-muted uppercase font-bold">Total Procurement Investment</span>
+            <span className="text-[16px] font-bold text-brand-warning">{formatCurrency(totalRawMaterialInvestment)}</span>
+          </div>
         </div>
       </div>
 

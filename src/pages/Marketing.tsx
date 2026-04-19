@@ -43,12 +43,20 @@ export default function Marketing() {
     refetch();
   };
 
+  const totalMarketingSpend = (campaigns || []).reduce((sum, c) => sum + (Number(c.spend) || 0), 0);
+
   return (
     <div className="flex flex-col flex-1 h-full">
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Marketing & Ads</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Manage ad campaigns, track spend, and analyze platform performance separately</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
+            <span className="text-[10px] text-brand-muted uppercase font-bold">Total Marketing Spend</span>
+            <span className="text-[16px] font-bold text-brand-warning">{formatCurrency(totalMarketingSpend)}</span>
+          </div>
         </div>
       </div>
 
