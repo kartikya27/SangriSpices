@@ -2,13 +2,14 @@ import React, { useState } from "react";
 import { useFetch } from "@/src/lib/hooks";
 import { formatCurrency, formatNumber } from "@/src/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Label } from "@/src/components/ui";
-import { CopyPlus, X } from "lucide-react";
+import { CopyPlus, X, Box } from "lucide-react";
 
 export default function Sales() {
   const { data: variants } = useFetch<any[]>("/api/variants");
   const { data: channels } = useFetch<any[]>("/api/channels");
   const { data: pricing } = useFetch<any[]>("/api/pricing");
   const { data: sales, refetch } = useFetch<any[]>("/api/sales");
+  const { data: combos, refetch: refetchCombos } = useFetch<any[]>("/api/combos");
 
   const [loading, setLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState("");
@@ -23,7 +24,8 @@ export default function Sales() {
       s.variant_name?.toLowerCase().includes(q) ||
       s.customer_phone?.toLowerCase().includes(q) ||
       s.customer_address?.toLowerCase().includes(q) ||
-      s.channel_name?.toLowerCase().includes(q)
+      s.channel_name?.toLowerCase().includes(q) ||
+      s.combo_name?.toLowerCase().includes(q)
     );
   });
 
@@ -34,13 +36,13 @@ export default function Sales() {
       existingOrder.total_revenue += item.qty * item.sale_price;
       existingOrder.total_shipping += item.shipping_cost;
       existingOrder.total_profit += item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost);
-      // If any item is returned, we consider the whole order returned for now
       if (item.is_returned === 1) existingOrder.is_returned = 1;
     } else {
       acc.push({
         order_id: item.order_id,
         external_order_id: item.external_order_id,
         date: item.date,
+        combo_name: item.combo_name,
         channel_name: item.channel_name,
         shipping_provider: item.shipping_provider,
         customer_phone: item.customer_phone,
@@ -56,7 +58,7 @@ export default function Sales() {
   }, []);
   
   // For multiple items form
-  const [items, setItems] = useState<{ id: string, variant_id: string, qty: number, sale_price: string, shipping_cost: string, unit_cost: number }[]>([
+  const [items, setItems] = useState<{ id: string, variant_id: string, qty: number, sale_price: string, shipping_cost: string, unit_cost: number, combo_name?: string }[]>([
     { id: 'initial', variant_id: "", qty: 1, sale_price: "", shipping_cost: "", unit_cost: 0 }
   ]);
 
@@ -68,13 +70,12 @@ export default function Sales() {
        item.sale_price = String(activePricing.sale_price);
        item.shipping_cost = String(activePricing.shipping_cost);
     } else {
-       // Fallback to MRP if no channel pricing found
        if (activeVariant && activeVariant.mrp) {
            item.sale_price = String(activeVariant.mrp);
        } else {
            item.sale_price = "";
        }
-       item.shipping_cost = "0"; // Default shipping
+       item.shipping_cost = "0"; 
     }
     
     if (activeVariant) {
@@ -88,6 +89,28 @@ export default function Sales() {
     newItems[index].variant_id = variant_id;
     newItems[index] = updateItemPricing(newItems[index], selectedChannel, variant_id);
     setItems(newItems);
+  };
+
+  const applyCombo = (comboId: string) => {
+    const combo = combos?.find(c => c.id === comboId);
+    if (!combo) return;
+    
+    const comboItems = JSON.parse(combo.items_json);
+    const newItems = comboItems.map((ci: any, index: number) => {
+       const activeVariant = variants?.find(v => v.id === ci.variant_id);
+       return {
+           id: Math.random().toString(),
+           variant_id: ci.variant_id,
+           qty: ci.qty,
+           sale_price: index === 0 ? String(combo.price) : "0",
+           shipping_cost: "0",
+           unit_cost: activeVariant ? activeVariant.total_manufacturing_cost : 0,
+           combo_name: combo.name
+       }
+    });
+
+    // Remove empty items before adding combo
+    setItems([...items.filter(i => i.variant_id !== ""), ...newItems]);
   };
 
   const handleChannelSelect = (channelId: string) => {
@@ -172,13 +195,13 @@ export default function Sales() {
   const totalActiveProfit = activeOrders.reduce((sum: number, o: any) => sum + o.total_profit, 0);
 
   return (
-    <div className="flex flex-col flex-1 h-full">
+    <div className="flex flex-col flex-1 h-full relative">
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Sales Record</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Log transactions, adjust custom shipping per order line, and view real-time profitability snapshots per order</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
             <span className="text-[10px] text-brand-muted uppercase font-bold">Total Active Revenue</span>
             <span className="text-[16px] font-bold text-brand-text">{formatCurrency(totalActiveRevenue)}</span>
@@ -311,9 +334,21 @@ export default function Sales() {
                   </div>
                 ))}
                 
-                <Button type="button" variant="outline" className="w-full text-[13px]" onClick={() => setItems([...items, { id: Math.random().toString(), variant_id: "", qty: 1, sale_price: "", shipping_cost: "", unit_cost: 0 }])}>
-                  <CopyPlus size={14} className="mr-2" /> Add Another Item
-                </Button>
+                <div className="flex gap-2 w-full mt-2">
+                  <Button type="button" variant="outline" className="flex-1 text-[13px]" onClick={() => setItems([...items, { id: Math.random().toString(), variant_id: "", qty: 1, sale_price: "", shipping_cost: "", unit_cost: 0 }])}>
+                    <CopyPlus size={14} className="mr-2" /> Add Single Variant
+                  </Button>
+                  {combos && combos.length > 0 && (
+                     <Select className="flex-1 text-[13px] bg-purple-50 text-purple-700 border-purple-200" value="" onChange={(e) => {
+                       if(e.target.value) {
+                         applyCombo(e.target.value);
+                       }
+                     }}>
+                        <option value="">+ Add Combo Bundle...</option>
+                        {combos.map((c: any) => <option value={c.id} key={c.id}>{c.name} - ₹{c.price}</option>)}
+                     </Select>
+                  )}
+                </div>
               </div>
 
               <Button type="submit" className="w-full" disabled={loading || !selectedChannel || !items.some(i => i.variant_id)}>
@@ -367,6 +402,9 @@ export default function Sales() {
                           {new Date(order.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
+                          {order.combo_name && (
+                            <span className="tag bg-purple-100 text-purple-700 border border-purple-200">Combo: {order.combo_name}</span>
+                          )}
                           <span className="tag bg-[#f1f5f9] text-[#475569]">{order.channel_name}</span>
                           {order.shipping_provider && (
                             <span className="tag bg-brand-accent/10 text-brand-accent border border-brand-accent/20">{order.shipping_provider}</span>

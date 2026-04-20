@@ -166,7 +166,9 @@ async function initializeDatabase() {
     "ALTER TABLE sales ADD COLUMN order_id TEXT",
     "ALTER TABLE sales ADD COLUMN shipping_provider TEXT",
     "ALTER TABLE sales ADD COLUMN external_order_id TEXT",
-    "ALTER TABLE sales ADD COLUMN is_returned INTEGER DEFAULT 0"
+    "ALTER TABLE sales ADD COLUMN is_returned INTEGER DEFAULT 0",
+    "ALTER TABLE sales ADD COLUMN combo_name TEXT",
+    "CREATE TABLE IF NOT EXISTS combos (id TEXT PRIMARY KEY, name TEXT NOT NULL, price REAL DEFAULT 0, items_json TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
   ];
 
   for (const m of migrations) {
@@ -416,8 +418,8 @@ async function startServer() {
     for (const item of items) {
       const id = uuidv4();
       batch.push({
-        sql: 'INSERT INTO sales (id, order_id, channel_id, variant_id, qty, sale_price, unit_cost, shipping_cost, date, customer_phone, customer_address, shipping_provider, external_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [id, order_id, channel_id, item.variant_id, item.qty, item.sale_price, item.unit_cost, item.shipping_cost, finalDate, customer_phone || null, customer_address || null, shipping_provider || null, external_order_id || null]
+        sql: 'INSERT INTO sales (id, order_id, channel_id, variant_id, qty, sale_price, unit_cost, shipping_cost, date, customer_phone, customer_address, shipping_provider, external_order_id, combo_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [id, order_id, channel_id, item.variant_id, item.qty, item.sale_price, item.unit_cost, item.shipping_cost, finalDate, customer_phone || null, customer_address || null, shipping_provider || null, external_order_id || null, item.combo_name || null]
       });
       batch.push({
         sql: 'UPDATE variants SET stock_qty = stock_qty - ? WHERE id = ?',
@@ -431,6 +433,25 @@ async function startServer() {
     
     await db.batch(batch, 'write');
     res.json({ order_id });
+  });
+
+  app.get('/api/combos', async (req, res) => {
+    const result = await db.execute('SELECT * FROM combos ORDER BY created_at DESC');
+    res.json(result.rows);
+  });
+
+  app.post('/api/combos', async (req, res) => {
+    const { name, price, items_json } = req.body;
+    await db.execute({
+      sql: 'INSERT INTO combos (id, name, price, items_json) VALUES (?, ?, ?, ?)',
+      args: [uuidv4(), name, price, JSON.stringify(items_json)]
+    });
+    res.json({ success: true });
+  });
+
+  app.delete('/api/combos/:id', async (req, res) => {
+    await db.execute({ sql: 'DELETE FROM combos WHERE id=?', args: [req.params.id] });
+    res.json({ success: true });
   });
 
   app.delete('/api/sales/:id', async (req, res) => {
