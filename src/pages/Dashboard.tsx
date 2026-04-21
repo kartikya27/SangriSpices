@@ -92,18 +92,22 @@ export default function Dashboard() {
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Gross Profit (On Sales)</div>
           <div className="text-[20px] font-[700] text-brand-success">{formatCurrency(stats.grossProfit)}</div>
         </div>
+        <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm">
+          <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Other Expenses</div>
+          <div className="text-[20px] font-[700] text-brand-warning">{formatCurrency(stats.totalExpenses)}</div>
+        </div>
         <div className="bg-white p-[16px] rounded-[8px] border-red-200 bg-red-50/50 shadow-sm col-span-1">
            <div className="text-[11px] uppercase tracking-[0.05em] text-red-600 font-bold mb-[4px]">Refunded/Returned Revenue</div>
            <div className="text-[20px] font-[700] text-red-700">{formatCurrency(stats.returnedRevenue || 0)}</div>
         </div>
         <div className="bg-white p-[16px] rounded-[8px] border border-brand-border shadow-sm col-span-1">
-           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">COGS (of items sold)</div>
+           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-muted mb-[4px]">Mfg Cost (Items Sold)</div>
            <div className="text-[20px] font-[700]">{formatCurrency(stats.totalCogs)}</div>
         </div>
-        <div className="bg-white p-[16px] rounded-[8px] border border-brand-accent shadow-[0_0_15px_rgba(var(--color-brand-accent-rgb),0.1)] col-span-2">
+        <div className="bg-white p-[16px] rounded-[8px] border border-brand-accent shadow-[0_0_15px_rgba(var(--color-brand-accent-rgb),0.1)] col-span-1">
           <div className="text-[11px] uppercase tracking-[0.05em] text-brand-accent font-bold mb-[4px]">Net Period Profit (Cash Flow)</div>
-          <div className="text-[24px] font-[800] text-brand-accent">{formatCurrency(stats.netProfit)}</div>
-          <div className="text-[10px] text-brand-muted mt-1 italic">Calculated as: Revenue - Sub-total Expenditures (Materials + Ads + Ops)</div>
+          <div className="text-[20px] font-[800] text-brand-accent">{formatCurrency(stats.netProfit)}</div>
+          <div className="text-[9px] text-brand-muted mt-1 leading-tight italic">Revenue - Sub-total Expenditures</div>
         </div>
       </div>
 

@@ -575,7 +575,22 @@ async function startServer() {
     try {
       const { start_date, end_date, product_id } = req.query as { start_date?: string, end_date?: string, product_id?: string };
 
-      let salesSql = 'SELECT s.*, v.product_id FROM sales s JOIN variants v ON s.variant_id = v.id WHERE 1=1';
+      let salesSql = `
+        SELECT 
+          s.*, 
+          v.product_id,
+          v.weight_grams,
+          v.packaging_cost,
+          v.sticker_cost,
+          r.total_cost as rm_total_cost,
+          r.total_qty_kg,
+          r.transport_cost as rm_transport,
+          r.operational_cost as rm_operational
+        FROM sales s 
+        JOIN variants v ON s.variant_id = v.id 
+        LEFT JOIN raw_materials r ON v.raw_material_id = r.id
+        WHERE 1=1
+      `;
       const salesArgs: any[] = [];
       if (start_date) { salesSql += ' AND s.date >= ?'; salesArgs.push(start_date); }
       if (end_date) { salesSql += ' AND s.date <= ?'; salesArgs.push(end_date + 'T23:59:59'); }
@@ -615,7 +630,17 @@ async function startServer() {
       for(const s of salesRows) {
         const salePrice = Number(s.sale_price) || 0;
         const qty = Number(s.qty) || 0;
-        const unitCost = Number(s.unit_cost) || 0;
+        
+        let unitCost = Number(s.unit_cost) || 0;
+        if (unitCost === 0) {
+           const transport = Number(s.rm_transport || 0);
+           const operational = Number(s.rm_operational || 0);
+           const totalRmCostBasis = Number(s.rm_total_cost || 0) + transport + operational;
+           const rm_cost_per_gram = (Number(s.total_qty_kg) > 0 && totalRmCostBasis > 0) ? (totalRmCostBasis / (Number(s.total_qty_kg) * 1000)) : 0;
+           const raw_material_cost = rm_cost_per_gram * Number(s.weight_grams || 0);
+           unitCost = raw_material_cost + Number(s.packaging_cost || 0) + Number(s.sticker_cost || 0);
+        }
+        
         const shippingCost = Number(s.shipping_cost) || 0;
 
         if (s.is_returned === 1) {
@@ -642,6 +667,7 @@ async function startServer() {
       
       res.json({
         totalRevenue,
+        totalCogs,
         totalPurchases,
         totalExpenses,
         marketingSpend,
