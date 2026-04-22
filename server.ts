@@ -570,6 +570,25 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // DB Backup Endpoint
+  app.get('/api/backup', async (req, res) => {
+    try {
+      const tableNames = ['raw_materials', 'products', 'variants', 'channels', 'pricing', 'inventory_logs', 'sales', 'expenses', 'marketing_campaigns', 'combos'];
+      const backup: Record<string, any[]> = {};
+      
+      const batchQueries = tableNames.map(t => ({ sql: `SELECT * FROM ${t}`, args: [] }));
+      const results = await db.batch(batchQueries, 'read');
+      
+      tableNames.forEach((t, i) => {
+        backup[t] = results[i].rows;
+      });
+      
+      res.json(backup);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Dashboard
   app.get('/api/dashboard', async (req, res) => {
     try {

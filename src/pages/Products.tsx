@@ -307,61 +307,126 @@ export default function Products() {
           </Card>
         </div>
 
-        <Card className="flex flex-col h-full overflow-hidden">
-          <CardHeader>
-            <CardTitle>Catalog & Cost Analysis</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Variant</th>
-                  <th>Batch</th>
-                  <th style={{ textAlign: "right" }}>Raw Cost</th>
-                  <th style={{ textAlign: "right" }}>Other Costs</th>
-                  <th style={{ textAlign: "right", fontWeight: "bold" }}>Total Mfg Cost</th>
-                  <th style={{ textAlign: "right" }}>Stock</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {variants?.map((v) => {
-                  const rawCost = v.raw_material_cost;
-                  const otherCosts = v.total_manufacturing_cost - rawCost;
-                  return (
-                    <tr key={v.id} className="hover:bg-gray-50/50">
-                      <td>
-                        <div className="font-[600]">{v.product_name}</div>
-                        <div className="text-[11px] text-brand-muted">{v.name} ({v.weight_grams}g)</div>
-                      </td>
-                      <td><span className="mono">{v.rm_name}</span></td>
-                      <td style={{ textAlign: "right" }}>{formatCurrency(rawCost)}</td>
-                      <td style={{ textAlign: "right" }}>{formatCurrency(otherCosts)}</td>
-                      <td className="mono" style={{ textAlign: "right", fontWeight: "600", backgroundColor: "#f8fafc" }}>
-                        {formatCurrency(v.total_manufacturing_cost)}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <span className={v.stock_qty <= 10 ? "text-brand-danger font-bold" : "font-[600]"}>
-                          {v.stock_qty}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button onClick={() => deleteVariant(v.id)} className={`text-[12px] hover:underline ${confirmDelete === v.id ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
-                          {confirmDelete === v.id ? 'Sure?' : 'Del'}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {!variants?.length && (
+        <div className="flex flex-col h-full gap-4 overflow-auto pb-8">
+          <Card className="flex flex-col flex-shrink-0">
+            <CardHeader>
+              <CardTitle>Variant Catalog & Cost Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 table-container">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={7} className="py-[32px] text-center text-brand-muted">No variants created.</td>
+                    <th>Variant</th>
+                    <th>Batch</th>
+                    <th style={{ textAlign: "right" }}>Raw Cost</th>
+                    <th style={{ textAlign: "right" }}>Other Costs</th>
+                    <th style={{ textAlign: "right", fontWeight: "bold" }}>Total Mfg Cost</th>
+                    <th style={{ textAlign: "right" }}>Stock</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                </thead>
+                <tbody>
+                  {variants?.map((v) => {
+                    const rawCost = v.raw_material_cost;
+                    const otherCosts = v.total_manufacturing_cost - rawCost;
+                    return (
+                      <tr key={v.id} className="hover:bg-gray-50/50">
+                        <td>
+                          <div className="font-[600]">{v.product_name}</div>
+                          <div className="text-[11px] text-brand-muted">{v.name} ({v.weight_grams}g)</div>
+                        </td>
+                        <td><span className="mono">{v.rm_name}</span></td>
+                        <td style={{ textAlign: "right" }}>{formatCurrency(rawCost)}</td>
+                        <td style={{ textAlign: "right" }}>{formatCurrency(otherCosts)}</td>
+                        <td className="mono" style={{ textAlign: "right", fontWeight: "600", backgroundColor: "#f8fafc" }}>
+                          {formatCurrency(v.total_manufacturing_cost)}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <span className={v.stock_qty <= 10 ? "text-brand-danger font-bold" : "font-[600]"}>
+                            {v.stock_qty}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <button onClick={() => deleteVariant(v.id)} className={`text-[12px] hover:underline ${confirmDelete === v.id ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
+                            {confirmDelete === v.id ? 'Sure?' : 'Del'}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {!variants?.length && (
+                    <tr>
+                      <td colSpan={7} className="py-[32px] text-center text-brand-muted">No variants created.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col flex-shrink-0">
+            <CardHeader>
+              <CardTitle>Combo Catalog & Cost Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Combo Name</th>
+                    <th>Includes</th>
+                    <th style={{ textAlign: "right", fontWeight: "bold" }}>Total Mfg Cost</th>
+                    <th style={{ textAlign: "right", fontWeight: "bold" }}>Combo Price</th>
+                    <th style={{ textAlign: "right", fontWeight: "bold" }}>Gross Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {combos?.map((c) => {
+                    let items = [];
+                    try { items = JSON.parse(c.items_json); } catch(e) {}
+                    
+                    let totalMfgCost = 0;
+                    items.forEach((item: any) => {
+                      const v = variants?.find(v => v.id === item.variant_id);
+                      if (v) totalMfgCost += (v.total_manufacturing_cost || 0) * item.qty;
+                    });
+                    
+                    const margin = c.price - totalMfgCost;
+
+                    return (
+                      <tr key={c.id} className="hover:bg-gray-50/50">
+                        <td>
+                          <div className="font-[600]">{c.name}</div>
+                        </td>
+                        <td>
+                          <div className="text-[11px] text-brand-muted space-y-1">
+                            {items.map((ci: any, i:number) => {
+                               const v = variants?.find(v => v.id === ci.variant_id);
+                               return <div key={i}>• {v?.product_name} {v?.name} x {ci.qty}</div>
+                            })}
+                          </div>
+                        </td>
+                        <td className="mono" style={{ textAlign: "right", fontWeight: "600", backgroundColor: "#f8fafc" }}>
+                          {formatCurrency(totalMfgCost)}
+                        </td>
+                        <td className="mono text-brand-success" style={{ textAlign: "right", fontWeight: "600", backgroundColor: "#f8fafc" }}>
+                          {formatCurrency(c.price)}
+                        </td>
+                        <td className="mono" style={{ textAlign: "right", fontWeight: "600", color: margin >= 0 ? "inherit" : "red" }}>
+                          {formatCurrency(margin)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {!combos?.length && (
+                    <tr>
+                      <td colSpan={5} className="py-[32px] text-center text-brand-muted">No combos created.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

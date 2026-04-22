@@ -1,13 +1,16 @@
 import React, { useState } from "react";
 import { useFetch } from "@/src/lib/hooks";
 import { formatCurrency, formatNumber } from "@/src/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle, Input, Select, Label } from "@/src/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, Input, Select, Label, Button } from "@/src/components/ui";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function Dashboard() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [productId, setProductId] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const queryParams = new URLSearchParams();
   if (startDate) queryParams.append("start_date", startDate);
@@ -17,6 +20,33 @@ export default function Dashboard() {
   const { data: stats, loading, error: statsError } = useFetch<any>(`/api/dashboard?${queryParams.toString()}`);
   const { data: uiSales, loading: salesLoading, error: salesError } = useFetch<any[]>(`/api/sales`);
   const { data: products } = useFetch<any[]>("/api/products");
+
+  const downloadFullBackup = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch('/api/backup');
+      const data = await res.json();
+      
+      const wb = XLSX.utils.book_new();
+      
+      Object.keys(data).forEach(tableName => {
+        if (data[tableName] && data[tableName].length > 0) {
+           const ws = XLSX.utils.json_to_sheet(data[tableName]);
+           XLSX.utils.book_append_sheet(wb, ws, tableName.substring(0, 31)); 
+        } else {
+           const ws = XLSX.utils.json_to_sheet([{ Notice: "No data in this table" }]);
+           XLSX.utils.book_append_sheet(wb, ws, tableName.substring(0, 31));
+        }
+      });
+      
+      const dateStr = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `App_Database_Backup_${dateStr}.xlsx`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to download backup");
+    }
+    setIsExporting(false);
+  };
 
   if (loading || salesLoading) return <div className="p-8">Loading data from cloud...</div>;
   if (statsError || salesError) return (
@@ -151,7 +181,7 @@ export default function Dashboard() {
           </Card>
           
           <Card className="flex flex-col flex-1 overflow-hidden">
-            <CardHeader>
+            <CardHeader className="flex flex-row justify-between items-center pr-4">
               <CardTitle>Recent Sales</CardTitle>
             </CardHeader>
             <CardContent className="p-4 flex-1 overflow-auto">
@@ -172,6 +202,18 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          
+          <div className="pt-2">
+            <Button 
+               variant="outline" 
+               className="w-full border-gray-300 bg-white" 
+               onClick={downloadFullBackup}
+               disabled={isExporting}
+            >
+              <Download size={16} className="mr-2" />
+              {isExporting ? "Connecting..." : "Download Full Database Backup"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

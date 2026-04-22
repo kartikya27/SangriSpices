@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useFetch } from "@/src/lib/hooks";
 import { formatCurrency, formatNumber } from "@/src/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Label } from "@/src/components/ui";
-import { CopyPlus, X, Box } from "lucide-react";
+import { CopyPlus, X, Box, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function Sales() {
   const { data: variants } = useFetch<any[]>("/api/variants");
@@ -14,6 +15,9 @@ export default function Sales() {
   const [loading, setLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
 
   const filteredSales = sales?.filter(s => {
     const q = searchQuery.toLowerCase();
@@ -31,11 +35,18 @@ export default function Sales() {
 
   const groupedSales = (filteredSales || []).reduce((acc: any[], item: any) => {
     const existingOrder = acc.find(o => o.order_id === item.order_id);
+    const itemTotal = item.qty * item.sale_price;
+    const itemGST = itemTotal * 0.05;
+    const itemBaseRev = itemTotal - itemGST;
+    const itemProfit = itemBaseRev - (item.qty * item.unit_cost + item.shipping_cost);
+
     if (existingOrder) {
       existingOrder.items.push(item);
-      existingOrder.total_revenue += item.qty * item.sale_price;
+      existingOrder.total_revenue += itemTotal;
+      existingOrder.total_base_revenue += itemBaseRev;
+      existingOrder.total_gst += itemGST;
       existingOrder.total_shipping += item.shipping_cost;
-      existingOrder.total_profit += item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost);
+      existingOrder.total_profit += itemProfit;
       if (item.is_returned === 1) existingOrder.is_returned = 1;
     } else {
       acc.push({
@@ -49,9 +60,11 @@ export default function Sales() {
         customer_address: item.customer_address,
         is_returned: item.is_returned === 1 ? 1 : 0,
         items: [item],
-        total_revenue: item.qty * item.sale_price,
+        total_revenue: itemTotal,
+        total_base_revenue: itemBaseRev,
+        total_gst: itemGST,
         total_shipping: item.shipping_cost,
-        total_profit: item.qty * item.sale_price - (item.qty * item.unit_cost + item.shipping_cost)
+        total_profit: itemProfit
       });
     }
     return acc;
@@ -194,14 +207,94 @@ export default function Sales() {
   const totalActiveRevenue = activeOrders.reduce((sum: number, o: any) => sum + o.total_revenue, 0);
   const totalActiveProfit = activeOrders.reduce((sum: number, o: any) => sum + o.total_profit, 0);
 
+  const downloadExcel = () => {
+    if (!exportStartDate || !exportEndDate) {
+      alert("Please select both start and end dates");
+      return;
+    }
+    
+    const start = new Date(exportStartDate).getTime();
+    const end = new Date(exportEndDate).setHours(23, 59, 59, 999);
+
+    const exportData = (sales || [])
+      .filter((s: any) => {
+        const d = new Date(s.date).getTime();
+        return d >= start && d <= end;
+      })
+      .map((s: any) => {
+        const totalRev = Number(s.sale_price) * Number(s.qty);
+        const gst = totalRev * 0.05;
+        const baseRev = totalRev - gst;
+        
+        return {
+          "Order Date": new Date(s.date).toLocaleString(),
+          "Order ID": s.order_id,
+          "External Order ID": s.external_order_id || "N/A",
+          "Channel": s.channel_name,
+          "Product": s.product_name,
+          "Variant": s.variant_name,
+          "Combo": s.combo_name || "N/A",
+          "Qty": s.qty,
+          "Unit Price (Inc GST)": Number(s.sale_price).toFixed(2),
+          "Total Revenue (Inc GST)": totalRev.toFixed(2),
+          "Base Revenue (Exc GST)": baseRev.toFixed(2),
+          "GST (5%)": gst.toFixed(2),
+          "Shipping Cost": Number(s.shipping_cost).toFixed(2),
+          "Mfg Unit Cost": Number(s.unit_cost).toFixed(2),
+          "Customer Phone": s.customer_phone || "",
+          "Customer Address": s.customer_address || "",
+          "Shipping Provider": s.shipping_provider || "",
+          "Returned": s.is_returned === 1 ? "Yes" : "No"
+        };
+      });
+
+    if (exportData.length === 0) {
+      alert("No sales found in this date range");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sales");
+    XLSX.writeFile(wb, `Sales_Export_${exportStartDate}_to_${exportEndDate}.xlsx`);
+    
+    setShowExportModal(false);
+  };
+
   return (
     <div className="flex flex-col flex-1 h-full relative">
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-[12px] p-6 w-[400px] shadow-xl">
+            <h2 className="text-lg font-bold mb-4">Download Sales (Excel)</h2>
+            <div className="space-y-4">
+              <div>
+                <Label>Start Date</Label>
+                <Input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>End Date</Label>
+                <Input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} />
+              </div>
+              <div className="flex gap-2 justify-end pt-4">
+                <Button variant="outline" onClick={() => setShowExportModal(false)}>Cancel</Button>
+                <Button onClick={downloadExcel}>Download</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-end mb-[20px]">
         <div>
           <h1 className="text-[24px] font-[700] m-0">Sales Record</h1>
           <p className="text-[13px] text-brand-muted m-0 mt-1">Log transactions, adjust custom shipping per order line, and view real-time profitability snapshots per order</p>
         </div>
         <div className="flex gap-4 items-center">
+          <Button variant="outline" className="border-green-300 text-green-700 hover:bg-green-50 h-[54px]" onClick={() => setShowExportModal(true)}>
+             <Download size={16} className="mr-2"/> Excel Export
+          </Button>
           <div className="bg-white px-4 py-2 rounded-md border border-brand-border shadow-sm flex flex-col items-end">
             <span className="text-[10px] text-brand-muted uppercase font-bold">Total Active Revenue</span>
             <span className="text-[16px] font-bold text-brand-text">{formatCurrency(totalActiveRevenue)}</span>
@@ -377,13 +470,14 @@ export default function Sales() {
                   <th>Order/Date</th>
                   <th>Order Details</th>
                   <th style={{ textAlign: "right" }}>Rev & Ship</th>
+                  <th style={{ textAlign: "right" }}>Taxes (5%)</th>
                   <th style={{ textAlign: "right" }}>Profit</th>
                   <th style={{ textAlign: "right" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {groupedSales?.map((order: any) => {
-                  const margin = order.total_revenue > 0 ? (order.total_profit / order.total_revenue) * 100 : 0;
+                  const margin = order.total_base_revenue > 0 ? (order.total_profit / order.total_base_revenue) * 100 : 0;
                   const isGroup = !!order.order_id;
                   const deleteId = isGroup ? order.order_id : order.items[0].id;
                   
@@ -428,8 +522,11 @@ export default function Sales() {
                       </td>
                       <td style={{ textAlign: "right" }} className="py-4">
                         <div className={`font-[700] text-brand-text ${order.is_returned ? 'line-through text-brand-muted' : ''}`}>{formatCurrency(order.total_revenue)}</div>
-                        <div className="text-[10px] text-gray-400">Total Ship: {formatCurrency(order.total_shipping)}</div>
-                        <div className="text-[10px] text-gray-400 mt-1">{order.items.length} item{order.items.length > 1 ? 's' : ''}</div>
+                        <div className="text-[10px] text-gray-400 mt-1">Ship: +{formatCurrency(order.total_shipping)}</div>
+                      </td>
+                      <td style={{ textAlign: "right" }} className="py-4 bg-gray-50/50">
+                        <div className={`font-[600] text-gray-700 ${order.is_returned ? 'line-through text-brand-muted' : ''}`}>{formatCurrency(order.total_gst)}</div>
+                        <div className="text-[10px] text-gray-400 mt-1">Base: {formatCurrency(order.total_base_revenue)}</div>
                       </td>
                       <td style={{ textAlign: "right" }} className="py-4">
                         <div className={`${order.is_returned ? 'line-through text-brand-muted' : (order.total_profit >= 0 ? "text-brand-success" : "text-brand-danger")} font-[700]`}>
@@ -458,7 +555,7 @@ export default function Sales() {
                 })}
                 {!groupedSales?.length && (
                   <tr>
-                    <td colSpan={5} className="py-[32px] text-center text-brand-muted">No orders found matching search.</td>
+                    <td colSpan={6} className="py-[32px] text-center text-brand-muted">No orders found matching search.</td>
                   </tr>
                 )}
               </tbody>
