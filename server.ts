@@ -71,11 +71,24 @@ async function initializeDatabase() {
       markup_percent REAL DEFAULT 0,
       stock_qty INTEGER DEFAULT 0,
       mrp REAL DEFAULT 0,
+      is_sold_out INTEGER DEFAULT 0,
+      factory_price REAL DEFAULT 0,
+      ideal_margin REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(product_id) REFERENCES products(id),
       FOREIGN KEY(raw_material_id) REFERENCES raw_materials(id)
     );
   `);
+
+  try {
+    await db.execute('ALTER TABLE variants ADD COLUMN is_sold_out INTEGER DEFAULT 0');
+  } catch(e) {}
+  try {
+    await db.execute('ALTER TABLE variants ADD COLUMN factory_price REAL DEFAULT 0');
+  } catch(e) {}
+  try {
+    await db.execute('ALTER TABLE variants ADD COLUMN ideal_margin REAL DEFAULT 0');
+  } catch(e) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS channels (
@@ -359,6 +372,63 @@ async function startServer() {
       args: [req.body.mrp, req.params.id]
     });
     res.json({ success: true });
+  });
+
+  app.post('/api/variants/:id/factory-pricing', async (req, res) => {
+    await db.execute({
+      sql: 'UPDATE variants SET factory_price=?, ideal_margin=? WHERE id=?',
+      args: [req.body.factory_price, req.body.ideal_margin, req.params.id]
+    });
+    res.json({ success: true });
+  });
+
+  app.post('/api/variants/:id/mark-sold-out', async (req, res) => {
+    try {
+      const variantId = req.params.id;
+      
+      const variantRes = await db.execute({ sql: 'SELECT * FROM variants WHERE id=?', args: [variantId] });
+      const oldVariant = variantRes.rows[0];
+      if (!oldVariant) return res.status(404).json({ error: "Variant not found" });
+
+      const otherVariantsRes = await db.execute({
+        sql: 'SELECT id FROM variants WHERE product_id=? AND id!=? AND is_sold_out=0',
+        args: [oldVariant.product_id, variantId]
+      });
+      const otherVariants = otherVariantsRes.rows;
+
+      const pricingRes = await db.execute({ sql: 'SELECT * FROM pricing WHERE variant_id=?', args: [variantId] });
+      const oldPricing = pricingRes.rows;
+
+      const batch = [];
+      batch.push({
+        sql: 'UPDATE variants SET is_sold_out=1 WHERE id=?',
+        args: [variantId]
+      });
+
+      for (const destVariant of otherVariants) {
+        if (oldVariant.mrp) {
+          batch.push({
+            sql: 'UPDATE variants SET mrp=? WHERE id=? AND mrp=0',
+            args: [oldVariant.mrp, destVariant.id]
+          });
+        }
+        for (const price of oldPricing) {
+          batch.push({
+             sql: 'INSERT INTO pricing (id, variant_id, channel_id, sale_price, shipping_cost) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM pricing WHERE variant_id=? AND channel_id=?)',
+             args: [uuidv4(), destVariant.id, price.channel_id, price.sale_price, price.shipping_cost, destVariant.id, price.channel_id]
+          });
+        }
+      }
+      batch.push({
+        sql: 'DELETE FROM pricing WHERE variant_id=?',
+        args: [variantId]
+      });
+
+      await db.batch(batch, 'write');
+      res.json({ success: true });
+    } catch(e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Channels & Pricing

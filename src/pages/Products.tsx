@@ -16,6 +16,7 @@ export default function Products() {
   
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmSoldOut, setConfirmSoldOut] = useState<string | null>(null);
   const [isManageCombos, setIsManageCombos] = useState(false);
   
   const [comboForm, setComboForm] = useState<{name: string, price: string, items: {variant_id: string, qty: number}[]}>({
@@ -74,6 +75,23 @@ export default function Products() {
     }
     setLoading(false);
     setConfirmDelete(null);
+    rVariants();
+  };
+
+  const markVariantSoldOut = async (id: string) => {
+    if (confirmSoldOut !== id) {
+      setConfirmSoldOut(id);
+      setTimeout(() => setConfirmSoldOut(null), 3000);
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/variants/${id}/mark-sold-out`, { method: "POST" });
+    if (!res.ok) {
+       const data = await res.json();
+       alert(data.error);
+    }
+    setLoading(false);
+    setConfirmSoldOut(null);
     rVariants();
   };
 
@@ -144,7 +162,7 @@ export default function Products() {
                         const newI = [...comboForm.items]; newI[idx].variant_id = e.target.value; setComboForm({...comboForm, items: newI});
                       }}>
                         <option value="">Select Variant...</option>
-                        {variants?.map(v => <option key={v.id} value={v.id}>{v.product_name} - {v.name}</option>)}
+                        {variants?.filter(v => v.is_sold_out !== 1).map(v => <option key={v.id} value={v.id}>{v.product_name} - {v.name}</option>)}
                       </Select>
                       <Input type="number" min="1" className="h-8 w-[70px] text-[12px]" value={ci.qty} onChange={e => {
                         const newI = [...comboForm.items]; newI[idx].qty = Number(e.target.value); setComboForm({...comboForm, items: newI});
@@ -330,9 +348,9 @@ export default function Products() {
                     const rawCost = v.raw_material_cost;
                     const otherCosts = v.total_manufacturing_cost - rawCost;
                     return (
-                      <tr key={v.id} className="hover:bg-gray-50/50">
+                      <tr key={v.id} className={`hover:bg-gray-50/50 ${v.is_sold_out ? 'opacity-60' : ''}`}>
                         <td>
-                          <div className="font-[600]">{v.product_name}</div>
+                          <div className="font-[600]">{v.product_name} {v.is_sold_out ? <span className="text-red-500 text-[10px] ml-1">[SOLD OUT]</span> : null}</div>
                           <div className="text-[11px] text-brand-muted">{v.name} ({v.weight_grams}g)</div>
                         </td>
                         <td><span className="mono">{v.rm_name}</span></td>
@@ -342,14 +360,21 @@ export default function Products() {
                           {formatCurrency(v.total_manufacturing_cost)}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <span className={v.stock_qty <= 10 ? "text-brand-danger font-bold" : "font-[600]"}>
+                          <span className={v.stock_qty <= 10 && !v.is_sold_out ? "text-brand-danger font-bold" : "font-[600]"}>
                             {v.stock_qty}
                           </span>
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button onClick={() => deleteVariant(v.id)} className={`text-[12px] hover:underline ${confirmDelete === v.id ? 'text-brand-danger font-bold' : 'text-brand-danger'}`}>
-                            {confirmDelete === v.id ? 'Sure?' : 'Del'}
-                          </button>
+                          <div className="flex flex-col gap-1 items-end">
+                            {!v.is_sold_out && (
+                              <button onClick={() => markVariantSoldOut(v.id)} className={`text-[11px] hover:underline ${confirmSoldOut === v.id ? 'text-brand-danger font-bold' : 'text-orange-600'}`}>
+                                {confirmSoldOut === v.id ? 'Confirm?' : 'Mark Sold Out'}
+                              </button>
+                            )}
+                            <button onClick={() => deleteVariant(v.id)} className={`text-[11px] hover:underline ${confirmDelete === v.id ? 'text-brand-danger font-bold' : 'text-gray-400'}`}>
+                              {confirmDelete === v.id ? 'Sure?' : 'Delete'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )

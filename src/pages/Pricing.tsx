@@ -92,7 +92,7 @@ export default function Pricing() {
       </div>
       
       <div className="space-y-[24px] pb-8 overflow-auto flex-1">
-        {variants?.map(v => (
+        {variants?.filter(v => v.is_sold_out !== 1).map(v => (
           <Card key={v.id} className="border-brand-border shadow-sm">
             <CardHeader className="border-b bg-gray-50/50 py-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

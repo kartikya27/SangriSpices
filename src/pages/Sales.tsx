@@ -377,7 +377,7 @@ export default function Sales() {
                           onChange={e => handleVariantSelect(index, e.target.value)}
                         >
                           <option value="">Select Variant...</option>
-                          {variants?.map(v => <option key={v.id} value={v.id}>{v.product_name} - {v.name} (Stock: {v.stock_qty})</option>)}
+                          {variants?.filter(v => v.is_sold_out !== 1).map(v => <option key={v.id} value={v.id}>{v.product_name} - {v.name} (Stock: {v.stock_qty})</option>)}
                         </Select>
                       </div>
                       <div className="grid grid-cols-3 gap-[8px]">

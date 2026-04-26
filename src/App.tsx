@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { LayoutDashboard, PackageSearch, Boxes, Tags, FileBarChart, CreditCard, Sparkles } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Boxes, Tags, FileBarChart, CreditCard, Sparkles, Calculator } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import Dashboard from "./pages/Dashboard";
 import RawMaterials from "./pages/RawMaterials";
 import Products from "./pages/Products";
 import Pricing from "./pages/Pricing";
+import FactoryPricing from "./pages/FactoryPricing";
 import Sales from "./pages/Sales";
 import Expenses from "./pages/Expenses";
 import Marketing from "./pages/Marketing";
@@ -24,6 +25,7 @@ export default function App() {
     { id: "raw-materials", label: "Raw Materials", icon: PackageSearch },
     { id: "products", label: "Products & Variants", icon: Boxes },
     { id: "pricing", label: "Channel Pricing", icon: Tags },
+    { id: "factory-pricing", label: "Factory Price", icon: Calculator },
     { id: "sales", label: "Sales & Orders", icon: FileBarChart },
     { id: "ai-filters", label: "AI Analytics", icon: Sparkles },
     { id: "marketing", label: "Marketing & Ads", icon: Tags },
@@ -66,6 +68,7 @@ export default function App() {
         {activeTab === "raw-materials" && <RawMaterials />}
         {activeTab === "products" && <Products />}
         {activeTab === "pricing" && <Pricing />}
+        {activeTab === "factory-pricing" && <FactoryPricing />}
         {activeTab === "sales" && <Sales />}
         {activeTab === "ai-filters" && <AIChat />}
         {activeTab === "marketing" && <Marketing />}
